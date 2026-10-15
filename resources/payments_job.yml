@@ -1,0 +1,64 @@
+resources:
+  jobs:
+    payments_lakehouse:
+      name: payments-lakehouse
+      description: Bronze -> silver -> gold -> train (champion/challenger gate) -> score alerts
+      schedule:
+        quartz_cron_expression: "0 15 6 * * ?"
+        timezone_id: Europe/Berlin
+        pause_status: PAUSED   # unpause per target once the landing volume receives files
+      email_notifications:
+        on_failure:
+          - ${var.alert_email}
+      max_concurrent_runs: 1   # the file manifest / watermarks assume one writer
+
+      environments:
+        - environment_key: paylake
+          spec:
+            environment_version: "2"
+            dependencies:
+              - ../dist/*.whl
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+
+      tasks:
+        - task_key: bronze
+          environment_key: paylake
+          python_wheel_task:
+            package_name: paylake
+            entry_point: paylake-bronze
+            parameters: ["--catalog", "{{job.parameters.catalog}}", "--landing", "/Volumes/{{job.parameters.catalog}}/bronze/landing"]
+
+        - task_key: silver
+          depends_on: [{ task_key: bronze }]
+          environment_key: paylake
+          python_wheel_task:
+            package_name: paylake
+            entry_point: paylake-silver
+            parameters: ["--catalog", "{{job.parameters.catalog}}"]
+
+        - task_key: gold
+          depends_on: [{ task_key: silver }]
+          environment_key: paylake
+          python_wheel_task:
+            package_name: paylake
+            entry_point: paylake-gold
+            parameters: ["--catalog", "{{job.parameters.catalog}}"]
+
+        - task_key: train
+          depends_on: [{ task_key: gold }]
+          environment_key: paylake
+          python_wheel_task:
+            package_name: paylake
+            entry_point: paylake-train
+            parameters: ["--catalog", "{{job.parameters.catalog}}", "--landing", "/Volumes/{{job.parameters.catalog}}/bronze/landing"]
+
+        - task_key: score
+          depends_on: [{ task_key: train }]
+          environment_key: paylake
+          python_wheel_task:
+            package_name: paylake
+            entry_point: paylake-score
+            parameters: ["--catalog", "{{job.parameters.catalog}}"]

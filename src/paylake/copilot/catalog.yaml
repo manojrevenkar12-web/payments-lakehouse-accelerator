@@ -1,0 +1,60 @@
+# Tables the analyst copilot may query. Only gold, PII-free tables are listed;
+# the guardrail rejects any other table and any raw-PII column name.
+tables:
+  gold.payments_analytics:
+    description: One row per outgoing SEPA credit transfer (no names or IBANs; parties are pseudonymous tokens).
+    columns:
+      uetr: unique end-to-end transaction reference (UUID)
+      accepted_at: timestamp the payment was accepted from the customer (UTC)
+      settlement_date: interbank settlement date (DATE)
+      amount: settlement amount, DECIMAL(18,2)
+      currency: ISO 4217 currency code, normally EUR
+      debtor_ref: pseudonymous token of the paying customer's account
+      creditor_ref: pseudonymous token of the beneficiary account
+      debtor_country: debtor IBAN country code
+      creditor_country: creditor IBAN country code (DE, AT, NL, FR, ES, IT, BE, PL)
+      creditor_bic: beneficiary bank BIC
+      creditor_bank_name: beneficiary bank name from the BIC directory
+      status: clearing status - ACSC (settled), RJCT (rejected), PENDING (no status report yet)
+      status_reason: ISO 20022 reject reason code, e.g. AC01 incorrect account number, AM04 insufficient funds, AM05 duplication/currency
+      dq_warning_count: number of warning-level data-quality rules the payment failed
+  gold.daily_kpis:
+    description: Daily payment volume, value and reject rate by creditor country.
+    columns:
+      settlement_date: DATE
+      creditor_country: creditor IBAN country code
+      payments: number of payments
+      value_eur: sum of EUR amounts
+      rejected: number of rejected payments
+      pending: number of payments without a status report
+      reject_rate: rejected / payments
+  gold.reject_reasons:
+    description: Rejected payments by day and ISO 20022 reason code.
+    columns:
+      settlement_date: DATE
+      status_reason: reason code
+      rejections: count
+  gold.dq_summary:
+    description: Data-quality rule failure rates across all ingested batches.
+    columns:
+      rule: rule name
+      action: quarantine (row withheld from silver), warn (kept, flagged) or skip (duplicate)
+      failed: rows failing the rule
+      evaluated: rows evaluated
+      failure_rate: failed / evaluated
+      last_run_at: timestamp of the latest batch
+  gold.alerts:
+    description: Fraud/mule alerts produced by the champion model, top 1% of each day's payments by risk score.
+    columns:
+      uetr: payment reference
+      settlement_date: DATE
+      accepted_at: TIMESTAMP
+      debtor_ref: payer token
+      creditor_ref: beneficiary token
+      amount: DECIMAL(18,2)
+      currency: currency code
+      risk_score: model probability between 0 and 1
+      alert_rank: rank within the day (1 = highest risk)
+      reason_codes: ARRAY<STRING> of AMOUNT_SPIKE, NEW_PAYEE, NIGHT, VELOCITY, MANY_NEW_PAYEES, PAYEE_FAN_IN, NEAR_THRESHOLD_REPEAT, CROSS_BORDER
+      model_version: registered model version that scored the payment
+      review_status: OPEN until an analyst reviews it

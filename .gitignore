@@ -1,0 +1,12 @@
+__pycache__/
+*.egg-info/
+.venv/
+dist/
+build/
+lake/
+landing/
+mlruns/
+*.db
+.pytest_cache/
+.databricks/
+spark-warehouse/

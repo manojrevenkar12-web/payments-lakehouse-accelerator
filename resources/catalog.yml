@@ -1,0 +1,25 @@
+resources:
+  schemas:
+    bronze:
+      catalog_name: ${var.catalog}
+      name: bronze
+      comment: Raw ISO 20022 messages as received (restricted)
+    silver:
+      catalog_name: ${var.catalog}
+      name: silver
+      comment: Conformed, validated payments incl. PII under column masks (restricted)
+    gold:
+      catalog_name: ${var.catalog}
+      name: gold
+      comment: PII-free analytics, features, alerts and the fraud model
+    ops:
+      catalog_name: ${var.catalog}
+      name: ops
+      comment: Pipeline state and analyst feedback
+
+  volumes:
+    landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.bronze.name}
+      name: landing
+      comment: Landing zone for pacs.008 / pacs.002 files from the payment hub

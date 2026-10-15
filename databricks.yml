@@ -1,0 +1,36 @@
+# Databricks Asset Bundle: deploys the wheel, Unity Catalog schemas/volume and the pipeline job.
+#   databricks bundle validate
+#   databricks bundle deploy -t dev
+#   databricks bundle run payments_lakehouse -t dev
+bundle:
+  name: payments-lakehouse-accelerator
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds the bronze/silver/gold/ops schemas
+    default: payments_dev
+  alert_email:
+    description: Where job failures are reported
+    default: payments-data-oncall@example.com
+
+artifacts:
+  paylake_wheel:
+    type: whl
+    build: python -m build --wheel
+    path: .
+
+targets:
+  dev:
+    mode: development
+    default: true
+    variables:
+      catalog: payments_dev
+  prod:
+    mode: production
+    variables:
+      catalog: payments_prod
+    run_as:
+      service_principal_name: payments-lakehouse-sp

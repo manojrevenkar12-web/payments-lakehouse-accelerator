@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Alerts</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b1f24; --muted:#5d6670; --line:#e3e6ea; --accent:#c2410c; --ok:#15803d; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#111418; --card:#1a1e24; --ink:#e8eaed; --muted:#9aa3ad; --line:#2a3038; --accent:#fb923c; --ok:#4ade80; } }
+  * { box-sizing:border-box } body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--ink) }
+  header { padding:20px 24px 8px } h1 { font-size:20px; margin:0 } header p { margin:4px 0 0; color:var(--muted) }
+  main { display:grid; gap:16px; padding:16px 24px 32px; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)) }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; overflow:auto }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 10px }
+  .kpis { display:flex; gap:20px; flex-wrap:wrap } .kpi b { display:block; font-size:22px } .kpi span { color:var(--muted); font-size:12px }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums } th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap }
+  th { color:var(--muted); font-weight:500; font-size:12px } .tag { display:inline-block; padding:1px 6px; margin:1px; border-radius:4px; font-size:11px; border:1px solid var(--line) }
+  .score { color:var(--accent); font-weight:600 } .wide { grid-column:1/-1 } code { font-size:12px }
+</style>
+</head>
+<body>
+<header><h1>Outgoing SEPA payments: fraud alerts</h1><p>PII-free view: parties are pseudonymous tokens. Data from the gold layer.</p></header>
+<main>
+  <section><h2>Model vs rules (test period)</h2><div class="kpis" id="model">Loading...</div></section>
+  <section><h2>Data quality</h2><table id="dq"></table></section>
+  <section class="wide"><h2 id="alerts-title">Alerts</h2><table id="alerts"></table></section>
+  <section class="wide"><h2>Daily volume</h2><table id="kpis"></table></section>
+</main>
+<script>
+const pct = v => (v*100).toFixed(1) + '%';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function get(u){ const r = await fetch(u); if(!r.ok) throw new Error(u + ' ' + r.status); return r.json(); }
+(async () => {
+  try {
+    const m = await get('/model');
+    document.getElementById('model').innerHTML = [
+      ['PR-AUC', m.pr_auc.toFixed(3)], ['Recall @ ' + pct(m.alert_budget_share) + ' budget', pct(m.recall_at_budget)],
+      ['Precision @ budget', pct(m.precision_at_budget)], ['Rules recall', pct(m.rules_recall)],
+      ['Model recall @ rules volume', pct(m.model_recall_at_rules_volume)]
+    ].map(([k,v]) => `<div class="kpi"><b>${v}</b><span>${k}</span></div>`).join('');
+  } catch(e) { document.getElementById('model').textContent = e.message; }
+  try {
+    const dq = await get('/dq');
+    document.getElementById('dq').innerHTML = '<tr><th>Rule</th><th>Action</th><th>Failed</th><th>Rate</th></tr>' +
+      dq.map(r => `<tr><td>${esc(r.rule)}</td><td>${esc(r.action)}</td><td>${r.failed}</td><td>${pct(r.failure_rate)}</td></tr>`).join('');
+  } catch(e) { document.getElementById('dq').textContent = e.message; }
+  try {
+    const a = await get('/alerts?limit=25');
+    document.getElementById('alerts-title').textContent = `Alerts for ${a.day} (top ${a.count})`;
+    document.getElementById('alerts').innerHTML = '<tr><th>#</th><th>Score</th><th>Amount</th><th>Accepted</th><th>Payer</th><th>Payee</th><th>Reasons</th></tr>' +
+      a.alerts.map(r => `<tr><td>${r.alert_rank}</td><td class="score">${r.risk_score.toFixed(3)}</td><td>${Number(r.amount).toFixed(2)} ${esc(r.currency)}</td>
+      <td>${esc(r.accepted_at).slice(0,16).replace('T',' ')}</td><td><code>${esc(r.debtor_ref).slice(0,10)}</code></td><td><code>${esc(r.creditor_ref).slice(0,10)}</code></td>
+      <td>${(r.reason_codes||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</td></tr>`).join('');
+  } catch(e) { document.getElementById('alerts').textContent = e.message; }
+  try {
+    const k = await get('/kpis/daily');
+    document.getElementById('kpis').innerHTML = '<tr><th>Date</th><th>Payments</th><th>Value (EUR)</th><th>Rejected</th><th>Reject rate</th></tr>' +
+      k.map(r => `<tr><td>${esc(r.settlement_date).slice(0,10)}</td><td>${r.payments}</td><td>${Number(r.value_eur).toLocaleString('de-DE',{maximumFractionDigits:0})}</td><td>${r.rejected}</td><td>${pct(r.reject_rate)}</td></tr>`).join('');
+  } catch(e) { document.getElementById('kpis').textContent = e.message; }
+})();
+</script>
+</body>
+</html>
