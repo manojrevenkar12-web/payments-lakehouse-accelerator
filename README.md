@@ -27,7 +27,7 @@ Full pipeline in two incremental passes (days 1-24, then 25-30), local Spark on 
 | Area | What was measured | Result |
 |---|---|---|
 | Ingestion | 273 pacs.008 files incl. 3 re-sent by the hub and 1 truncated upload | a repeat run picks up **0 files** (tested); truncated file captured as 1 corrupt record; **1,499 duplicate UETRs** absorbed by MERGE |
-| Data quality | 9 expectation rules plus XML-integrity and duplicate checks over 127,254 evaluated transactions | **180 quarantined** (non-positive amounts, implausible settlement dates, missing UETR); 499 bad creditor IBANs flagged and later confirmed **RJCT AC01** by pacs.002 |
+| Data quality | 9 expectation rules plus XML-integrity and duplicate checks over 127,254 evaluated transactions | **180 quarantined** (non-positive amounts, implausible settlement dates, missing UETR); 499 bad creditor IBANs flagged; the 488 with a status report so far all came back **RJCT AC01** from pacs.002 |
 | Status | 125,575 silver payments | 123,479 ACSC, 1,097 RJCT (AC01 / AM04 / AM05), 999 still pending on the newest files |
 | Fraud model | time-based test set: last 30% of days, 38,606 payments, 380 confirmed fraud | **PR-AUC 0.94**; at a 1% daily alert budget: **87% precision, 88% recall** |
 | Model vs rules | same alert volume as the incumbent rule set (337 alerts) | rules: 27% precision / 24% recall; model: **93% precision / 83% recall** |
